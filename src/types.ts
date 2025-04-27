@@ -38,7 +38,7 @@ interface ApiCallParams {
   headers?: Record<string, string>;
   queryParams?: URLSearchParams;
   accessToken?: string;
-  requireAuth?: boolean;
+  useAuth?: boolean;
   noContentType?: boolean;
   contentType?: string;
   cacheTime?: number;

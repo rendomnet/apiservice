@@ -191,12 +191,12 @@ class ApiService {
       
       try {
         // Get authentication token if needed
-        const authToken: Token | Record<string, any> = apiCallParams.requireAuth !== false
+        const authToken: Token | Record<string, any> = apiCallParams.useAuth !== false
           ? await this.tokenService.get(accountId)
           : {};
           
         // Verify we have authentication if required
-        if (apiCallParams.requireAuth !== false && !apiCallParams.accessToken && !authToken.access_token) {
+        if (apiCallParams.useAuth !== false && !apiCallParams.accessToken && !authToken.access_token) {
           throw new Error(`${this.provider} credentials not found for account ID ${accountId}`);
         }
         

@@ -34,7 +34,7 @@ const result = await api.makeApiCall({
   method: 'GET',
   base: 'https://api.example.com',
   route: '/users',
-  requireAuth: true
+  useAuth: true
 });
 
 // Or omit accountId to use the default account ('default')
@@ -42,7 +42,7 @@ const defaultResult = await api.makeApiCall({
   method: 'GET',
   base: 'https://api.example.com',
   route: '/users',
-  requireAuth: true
+  useAuth: true
 });
 ```
 
@@ -308,7 +308,7 @@ async function fetchUserData(userId) {
       method: 'GET',
       base: 'https://api.example.com',
       route: `/users/${userId}`,
-      requireAuth: true
+      useAuth: true
     });
   } catch (error) {
     // 401 errors with valid refresh tokens will be automatically handled

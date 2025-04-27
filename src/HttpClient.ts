@@ -22,7 +22,7 @@ export class HttpClient {
       queryParams,
       contentType = 'application/json',
       accessToken: forcedAccessToken,
-      requireAuth = true,
+      useAuth = true,
       files,
     } = apiParams;
     
@@ -42,7 +42,7 @@ export class HttpClient {
       contentType,
       authToken,
       forcedAccessToken,
-      requireAuth,
+      useAuth,
       headers,
     });
 
@@ -91,7 +91,7 @@ export class HttpClient {
     contentType,
     authToken,
     forcedAccessToken,
-    requireAuth,
+    useAuth,
     headers,
   }: {
     method: string;
@@ -100,7 +100,7 @@ export class HttpClient {
     contentType: string;
     authToken: any;
     forcedAccessToken?: string;
-    requireAuth: boolean;
+    useAuth: boolean;
     headers?: Record<string, string>;
   }): RequestInit {
     const allowedMethods = ['POST', 'PUT', 'PATCH'];
@@ -108,7 +108,7 @@ export class HttpClient {
     return {
       method,
       headers: {
-        ...(requireAuth && { 
+        ...(useAuth && { 
           Authorization: `Bearer ${forcedAccessToken || authToken.access_token}` 
         }),
         ...(!formData && { 'content-type': contentType }),
