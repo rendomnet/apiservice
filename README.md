@@ -207,7 +207,10 @@ api.setup({
           }
           
           // Try to refresh the token
-          await tokenService.refresh(currentToken.refresh_token, accountId);
+          const token = await tokenService.refresh(currentToken.refresh_token, accountId);
+
+          // Save token
+          await tokenService.set(token, accountId);
           
           // Return empty object to retry with the same parameters
           // The ApiService will automatically get the new token on retry
