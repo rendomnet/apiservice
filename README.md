@@ -9,6 +9,7 @@ A robust TypeScript API service framework for making authenticated API calls wit
 - ✅ Account state tracking
 - ✅ File upload support
 - ✅ Support for multiple accounts or a single default account
+- ✅ Automatic token refresh for 401 errors
 
 ## Usage
 
@@ -21,16 +22,11 @@ api.setup({
   provider: 'my-service', // 'google' | 'microsoft' and etc.
   tokenService: myTokenService,
   hooks: {
-    401: {
-      shouldRetry: true,
-      useRetryDelay: true,
-      handler: async (accountId, response) => {
-        // Handle token refresh logic
-        return { /* updated parameters */ };
-      }
-    }
+    // You can define custom hooks here,
+    // or use the default token refresh handler for 401 errors
   },
-  cacheTime: 30000 // 30 seconds
+  cacheTime: 30000, // 30 seconds
+  enableDefaultHandlers: true // Enable automatic token refresh (default: true)
 });
 
 // Make API calls with specific account ID
@@ -50,6 +46,59 @@ const defaultResult = await api.makeApiCall({
   requireAuth: true
 });
 ```
+
+## Automatic Token Refresh
+
+ApiService includes a built-in handler for 401 (Unauthorized) errors that automatically refreshes OAuth tokens. When enabled, this feature:
+
+1. Detects 401 errors from the API
+2. Retrieves the current token for the account
+3. Uses the `refresh` method from your tokenService to obtain a new token
+4. Updates the stored token with the new one
+5. Retries the original API request with the new token
+
+To use this feature:
+
+1. Ensure your tokenService implements the `refresh` method
+2. Keep `enableDefaultHandlers: true` in your setup (this is the default)
+
+```typescript
+// Example token service with refresh capability
+const tokenService = {
+  async get(accountId = 'default') {
+    // Get token from storage
+    return storedToken;
+  },
+  
+  async set(token, accountId = 'default') {
+    // Save token to storage
+  },
+  
+  async refresh(refreshToken, accountId = 'default') {
+    // Refresh the token with your OAuth provider
+    const response = await fetch('https://api.example.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: 'your-client-id'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to refresh token');
+    }
+    
+    return await response.json();
+  }
+};
+```
+
+If you prefer to handle token refresh yourself, you can either:
+
+1. Disable default handlers: `enableDefaultHandlers: false`
+2. Or provide your own handler for 401 errors which will override the default
 
 ## Account Management
 
@@ -168,72 +217,66 @@ const tokenService = {
 
 ### Complete Authorization Flow Example
 
-Here's a complete example showing how to handle token refreshing with ApiService:
+Here's a complete example showing how to use ApiService with automatic token refresh:
 
 ```typescript
 import ApiService from '@rendomnet/apiservice';
 
-// Create token service
+// Create token service with refresh capability
 const tokenService = {
-  async get(accountId = 'default') { /* implementation as above */ },
-  async set(token, accountId = 'default') { /* implementation as above */ },
-  async refresh(refreshToken, accountId = 'default') { /* implementation as above */ }
+  // Get token from storage
+  async get(accountId = 'default') {
+    const storedToken = localStorage.getItem(`token-${accountId}`);
+    if (!storedToken) {
+      throw new Error(`No token found for account ${accountId}`);
+    }
+    return JSON.parse(storedToken);
+  },
+  
+  // Save token to storage
+  async set(token, accountId = 'default') {
+    const existingToken = localStorage.getItem(`token-${accountId}`);
+    const currentToken = existingToken ? JSON.parse(existingToken) : { accountId };
+    const updatedToken = { ...currentToken, ...token, updatedAt: new Date().toISOString() };
+    localStorage.setItem(`token-${accountId}`, JSON.stringify(updatedToken));
+  },
+  
+  // Refresh token with OAuth provider
+  async refresh(refreshToken, accountId = 'default') {
+    // Real implementation would call your OAuth endpoint
+    const response = await fetch('https://api.example.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: 'your-client-id'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to refresh token');
+    }
+    
+    return await response.json();
+  }
 };
 
 // Create API service instance
 const api = new ApiService();
 
-// Configure API service with hooks for handling auth errors
+// Configure API service with default handlers enabled
 api.setup({
   provider: 'example-api',
   tokenService,
+  cacheTime: 30000,
+  // enableDefaultHandlers: true is the default and doesn't need to be specified
+  
+  // You can still add custom hooks for other status codes
   hooks: {
-    // Handle 401 Unauthorized errors - typically for expired tokens
-    401: {
-      shouldRetry: true,
-      useRetryDelay: true,
-      preventConcurrentCalls: true, // Prevent multiple token refresh attempts
-      maxRetries: 1, // Only try refreshing once
-      
-      // Handler will try to refresh the token
-      handler: async (accountId) => {
-        try {
-          // Get the current token to extract refresh token
-          const currentToken = await tokenService.get(accountId);
-          
-          // If no refresh token, we can't refresh
-          if (!currentToken.refresh_token) {
-            throw new Error('No refresh token available');
-          }
-          
-          // Try to refresh the token
-          const token = await tokenService.refresh(currentToken.refresh_token, accountId);
-
-          // Save token
-          await tokenService.set(token, accountId);
-          
-          // Return empty object to retry with the same parameters
-          // The ApiService will automatically get the new token on retry
-          return {};
-        } catch (error) {
-          console.error('Token refresh failed:', error);
-          throw error; // Re-throw to halt retry process
-        }
-      },
-      
-      // Called when max retries exceeded (refresh failed)
-      onMaxRetriesExceeded: async (accountId, error) => {
-        console.error('Authentication failed after refresh attempt', error);
-        // You might want to trigger a sign out or auth UI here
-        window.dispatchEvent(new CustomEvent('auth:required', { 
-          detail: { accountId } 
-        }));
-      }
-    },
-    
     // Handle 403 Forbidden errors - typically for insufficient permissions
     403: {
-      shouldRetry: false, // Don't retry these errors
+      shouldRetry: false,
       handler: async (accountId, response) => {
         console.warn('Permission denied:', response);
         // You could trigger a permissions UI here
@@ -243,11 +286,10 @@ api.setup({
         return null;
       }
     }
-  },
-  cacheTime: 30000
+  }
 });
 
-// Use the API service (with default account)
+// Use the API service
 async function fetchUserData(userId) {
   try {
     return await api.makeApiCall({
@@ -258,6 +300,8 @@ async function fetchUserData(userId) {
       requireAuth: true
     });
   } catch (error) {
+    // 401 errors with valid refresh tokens will be automatically handled
+    // This catch will only trigger for other errors or if refresh fails
     console.error('Failed to fetch user data:', error);
     throw error;
   }

@@ -3,7 +3,8 @@ import {
   ApiCallParams,
   HookSettings,
   StatusCode,
-  Token
+  Token,
+  OAuthToken
 } from './types';
 import {
   CacheManager,
@@ -49,24 +50,83 @@ class ApiService {
   public setup({
     provider,
     tokenService,
-    hooks,
+    hooks = {},
     cacheTime,
+    enableDefaultHandlers = true
   }: {
     provider: string;
     tokenService: TokenService;
     hooks?: Record<StatusCode, HookSettings>;
     cacheTime: number;
+    enableDefaultHandlers?: boolean;
   }) {
     this.provider = provider;
     this.tokenService = tokenService;
     
-    if (hooks) {
+    // Add default handlers if enabled and not overridden
+    if (enableDefaultHandlers) {
+      // Default 401 handler for token refresh if not already defined and refresh method exists
+      if (!hooks[401] && typeof this.tokenService.refresh === 'function') {
+        hooks[401] = this.createDefaultTokenRefreshHandler();
+      }
+      
+      // Could add other default handlers here (e.g., for 403, 429, etc.)
+    }
+    
+    if (Object.keys(hooks).length > 0) {
       this.hookManager.setHooks(hooks);
     }
     
     if (typeof cacheTime !== 'undefined') {
       this.cacheManager.setCacheTime(cacheTime);
     }
+  }
+  
+  /**
+   * Create a default handler for 401 (Unauthorized) errors
+   * that implements standard token refresh behavior
+   */
+  private createDefaultTokenRefreshHandler(): HookSettings {
+    return {
+      shouldRetry: true,
+      useRetryDelay: true,
+      preventConcurrentCalls: true,
+      maxRetries: 1,
+      handler: async (accountId) => {
+        try {
+          console.log(`🔄 Using default token refresh handler for ${accountId}`);
+          
+          // Get current token to extract refresh token
+          const currentToken = await this.tokenService.get(accountId);
+          
+          if (!currentToken.refresh_token) {
+            throw new Error(`No refresh token available for account ${accountId}`);
+          }
+          
+          // Refresh the token
+          const newToken = await this.tokenService.refresh!(currentToken.refresh_token, accountId);
+          
+          if (!newToken || !newToken.access_token) {
+            throw new Error('Token refresh returned invalid data');
+          }
+          
+          // Update the token in storage
+          await this.tokenService.set({
+            access_token: newToken.access_token,
+            refresh_token: newToken.refresh_token || currentToken.refresh_token
+          }, accountId);
+          
+          // Return empty object to retry with same parameters
+          return {};
+        } catch (error) {
+          console.error(`Token refresh failed for ${accountId}:`, error);
+          throw error;
+        }
+      },
+      onMaxRetriesExceeded: async (accountId, error) => {
+        console.error(`Authentication failed after refresh attempt for ${accountId}:`, error);
+      }
+    };
   }
   
   /**
