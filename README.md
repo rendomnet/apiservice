@@ -29,7 +29,7 @@ api.setup({
 });
 
 // Make API calls with specific account ID
-const result = await api.makeApiCall({
+const result = await api.call({
   accountId: 'user123',
   method: 'GET',
   base: 'https://api.example.com',
@@ -38,7 +38,7 @@ const result = await api.makeApiCall({
 });
 
 // Or omit accountId to use the default account ('default')
-const defaultResult = await api.makeApiCall({
+const defaultResult = await api.call({
   method: 'GET',
   base: 'https://api.example.com',
   route: '/users',
@@ -123,7 +123,7 @@ For simple applications that only need a single account, you can omit the accoun
 
 ```typescript
 // Make calls without specifying accountId - uses 'default' automatically
-const result = await api.makeApiCall({
+const result = await api.call({
   method: 'GET',
   base: 'https://api.example.com',
   route: '/users'
@@ -303,7 +303,7 @@ api.setup({
 // Use the API service
 async function fetchUserData(userId) {
   try {
-    return await api.makeApiCall({
+    return await api.call({
       // No accountId needed - will use 'default' automatically
       method: 'GET',
       base: 'https://api.example.com',

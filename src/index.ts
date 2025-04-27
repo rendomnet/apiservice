@@ -152,14 +152,14 @@ class ApiService {
   /**
    * Main API call method
    */
-  public async makeApiCall(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
+  public async call(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
     // Use 'default' as fallback if accountId is not provided
     const params: ApiCallParams = {
       ...apiCallParams,
       accountId: apiCallParams.accountId || 'default',
     };
 
-    console.log('🔄 makeApiCall', this.provider, params.accountId);
+    console.log('🔄 call', this.provider, params.accountId);
     
     // Check cache first
     const cachedData = this.cacheManager.getFromCache(params);
