@@ -18,7 +18,7 @@ import ApiService from '@rendomnet/apiservice';
 // Create and setup the API service
 const api = new ApiService();
 api.setup({
-  provider: 'my-service',
+  provider: 'my-service', // 'google' | 'microsoft' and etc.
   tokenService: myTokenService,
   hooks: {
     401: {
@@ -31,7 +31,7 @@ api.setup({
     }
   },
   cacheTime: 30000, // 30 seconds
-  defaultAccountId: 'default-user' // Optional: Set a default account ID
+  defaultAccountId: 'default-user' // Optional: Set a default account ID (default is 'default')
 });
 
 // Make API calls with specific account ID
