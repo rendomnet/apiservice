@@ -1,0 +1,39 @@
+{
+  "name": "apiservice",
+  "version": "1.0.0",
+  "description": "A robust TypeScript API service framework for making authenticated API calls",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "api",
+    "service",
+    "typescript",
+    "fetch",
+    "retry",
+    "cache",
+    "hooks"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rendomnet/apiservice.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rendomnet/apiservice/issues"
+  },
+  "homepage": "https://github.com/rendomnet/apiservice#readme",
+  "dependencies": {
+    "qs": "^6.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/qs": "^6.9.7",
+    "typescript": "^4.7.4"
+  }
+} 
