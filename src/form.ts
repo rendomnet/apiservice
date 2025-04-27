@@ -1,4 +1,4 @@
-export function deserializeForm(src) {
+export function deserializeForm(src: any): FormData {
   const fd = new FormData();
   switch (src.cls) {
     case 'FormData': {
@@ -6,7 +6,9 @@ export function deserializeForm(src) {
         for (const item of items) {
           let deserializedItem = deserializeForm(item);
           if (deserializedItem instanceof FormData) {
-            for (const [subKey, subValue] of deserializedItem.entries()) {
+            // Use a workaround for TypeScript FormData entries() issue
+            const entries = deserializedItem as any;
+            for (const [subKey, subValue] of entries.entries()) {
               fd.append(`${key}[${subKey}]`, subValue);
             }
           } else {

@@ -73,7 +73,9 @@ export class HttpClient {
     if (!files) return null;
     
     const formData = deserializeForm(files);
-    for (let [key, value] of formData.entries()) {
+    // Use a workaround for TypeScript FormData entries() issue
+    const entries = formData as any;
+    for (let [key, value] of entries.entries()) {
       console.log(`formdata ${key}:`, value);
     }
     return formData;
