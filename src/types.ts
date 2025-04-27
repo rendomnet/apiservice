@@ -32,7 +32,7 @@ interface ApiCallParams {
   accountId: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   route: string;
-  base: string;
+  base?: string;
   body?: object;
   data?: object;
   headers?: Record<string, string>;

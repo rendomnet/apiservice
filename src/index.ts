@@ -21,6 +21,7 @@ import {
 class ApiService {
   public provider: string; // Service provider name
   private tokenService: TokenService;
+  private baseUrl: string = ''; // Default base URL
   
   // Component managers
   private cacheManager: CacheManager;
@@ -52,14 +53,17 @@ class ApiService {
     tokenService,
     hooks = {},
     cacheTime,
+    baseUrl = '',
   }: {
     provider: string;
     tokenService: TokenService;
     hooks?: Record<StatusCode, HookSettings | null>;
     cacheTime: number;
+    baseUrl?: string;
   }) {
     this.provider = provider;
     this.tokenService = tokenService;
+    this.baseUrl = baseUrl;
     
     // Create a copy of hooks to avoid modifying the input
     const finalHooks: Record<StatusCode, HookSettings> = {};
@@ -150,16 +154,18 @@ class ApiService {
   }
 
   /**
-   * Main API call method
+   * Make an API call with all features (caching, retry, hooks)
    */
   public async call(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
     // Use 'default' as fallback if accountId is not provided
+    // and use default baseUrl if not provided
     const params: ApiCallParams = {
       ...apiCallParams,
       accountId: apiCallParams.accountId || 'default',
+      base: apiCallParams.base || this.baseUrl,
     };
 
-    console.log('🔄 call', this.provider, params.accountId);
+    console.log('🔄 API call', this.provider, params.accountId, params.method, params.route);
     
     // Check cache first
     const cachedData = this.cacheManager.getFromCache(params);
@@ -172,6 +178,14 @@ class ApiService {
     this.cacheManager.saveToCache(params, result);
     
     return result;
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use call() instead
+   */
+  public async makeApiCall(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
+    return this.call(apiCallParams);
   }
 
   /**

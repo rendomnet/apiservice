@@ -25,14 +25,22 @@ api.setup({
     // You can define custom hooks here,
     // or use the default token refresh handler for 401 errors
   },
-  cacheTime: 30000 // 30 seconds
+  cacheTime: 30000, // 30 seconds
+  baseUrl: 'https://api.example.com' // Set default base URL
 });
 
-// Make API calls with specific account ID
+// Make API calls with specific account ID and use default baseUrl
 const result = await api.call({
   accountId: 'user123',
   method: 'GET',
-  base: 'https://api.example.com',
+  route: '/users',
+  useAuth: true
+});
+
+// Override default baseUrl for specific calls
+const customResult = await api.call({
+  method: 'GET',
+  base: 'https://api2.example.com', // Override default baseUrl
   route: '/users',
   useAuth: true
 });
@@ -40,7 +48,6 @@ const result = await api.call({
 // Or omit accountId to use the default account ('default')
 const defaultResult = await api.call({
   method: 'GET',
-  base: 'https://api.example.com',
   route: '/users',
   useAuth: true
 });
@@ -125,7 +132,6 @@ For simple applications that only need a single account, you can omit the accoun
 // Make calls without specifying accountId - uses 'default' automatically
 const result = await api.call({
   method: 'GET',
-  base: 'https://api.example.com',
   route: '/users'
 });
 ```
@@ -281,6 +287,7 @@ api.setup({
   provider: 'example-api',
   tokenService,
   cacheTime: 30000,
+  baseUrl: 'https://api.example.com',
   
   // You can still add custom hooks for other status codes
   // The default 401 handler will be used automatically
@@ -306,7 +313,6 @@ async function fetchUserData(userId) {
     return await api.call({
       // No accountId needed - will use 'default' automatically
       method: 'GET',
-      base: 'https://api.example.com',
       route: `/users/${userId}`,
       useAuth: true
     });
@@ -371,3 +377,54 @@ The codebase is built around a main `ApiService` class that coordinates several 
 - `RetryManager`: Manages retry logic with exponential backoff and other delay strategies
 - `HookManager`: Provides a way to hook into specific status codes and handle them
 - `AccountManager`: Tracks account state and handles account-specific data
+
+## Advanced Usage
+
+### Multiple API Providers
+
+```javascript
+// Configure multiple API providers
+api.setup({
+  provider: 'primary-api',
+  tokenService: primaryTokenService,
+  cacheTime: 30000,
+  baseUrl: 'https://api.primary.com'
+});
+
+api.setup({
+  provider: 'secondary-api',
+  tokenService: secondaryTokenService,
+  cacheTime: 60000,
+  baseUrl: 'https://api.secondary.com'
+});
+
+// Use different providers in API calls
+async function fetchCombinedData() {
+  const [primaryData, secondaryData] = await Promise.all([
+    api.call({
+      provider: 'primary-api',
+      method: 'GET',
+      route: '/data',
+      useAuth: true
+    }),
+    
+    api.call({
+      provider: 'secondary-api',
+      method: 'GET',
+      route: '/data',
+      useAuth: true
+    }),
+    
+    // Override baseUrl for a specific API call
+    api.call({
+      provider: 'primary-api',
+      method: 'GET',
+      route: '/special-data',
+      useAuth: true,
+      base: 'https://special-api.primary.com'
+    })
+  ]);
+  
+  return { primaryData, secondaryData };
+}
+```
