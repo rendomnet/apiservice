@@ -30,8 +30,7 @@ api.setup({
       }
     }
   },
-  cacheTime: 30000, // 30 seconds
-  defaultAccountId: 'default-user' // Optional: Set a default account ID (default is 'default')
+  cacheTime: 30000 // 30 seconds
 });
 
 // Make API calls with specific account ID
@@ -43,7 +42,7 @@ const result = await api.makeApiCall({
   requireAuth: true
 });
 
-// Or use the default account ID (if set during setup)
+// Or omit accountId to use the default account ('default')
 const defaultResult = await api.makeApiCall({
   method: 'GET',
   base: 'https://api.example.com',
@@ -60,19 +59,10 @@ ApiService supports multiple accounts through the `accountId` parameter. This al
 2. **Track state by account** - Each account has its own state tracking (request times, failures)
 3. **Apply account-specific retry logic** - Hooks can behave differently based on the account
 
-For simple applications that only need a single account, you can set a default account ID:
+For simple applications that only need a single account, you can omit the accountId parameter:
 
 ```typescript
-// Set default account during setup
-api.setup({
-  // ... other options
-  defaultAccountId: 'default-user'
-});
-
-// Or set it later
-api.setDefaultAccountId('default-user');
-
-// Then make calls without specifying accountId
+// Make calls without specifying accountId - uses 'default' automatically
 const result = await api.makeApiCall({
   method: 'GET',
   base: 'https://api.example.com',
@@ -80,7 +70,7 @@ const result = await api.makeApiCall({
 });
 ```
 
-If no accountId is provided and no default is set, ApiService uses 'default' as the account ID.
+If no accountId is provided, ApiService automatically uses 'default' as the account ID.
 
 ## Token Service
 
@@ -90,7 +80,7 @@ ApiService requires a `tokenService` for authentication. This service manages to
 
 ```typescript
 interface TokenService {
-  // Get a token for an account (accountId is optional if using a default account)
+  // Get a token for an account (accountId is optional, defaults to 'default')
   get: (accountId?: string) => Promise<Token>;
   
   // Save a token for an account
@@ -197,7 +187,6 @@ const api = new ApiService();
 api.setup({
   provider: 'example-api',
   tokenService,
-  defaultAccountId: 'default', // Optional: Set a default account
   hooks: {
     // Handle 401 Unauthorized errors - typically for expired tokens
     401: {
@@ -259,7 +248,7 @@ api.setup({
 async function fetchUserData(userId) {
   try {
     return await api.makeApiCall({
-      // No accountId needed if using default
+      // No accountId needed - will use 'default' automatically
       method: 'GET',
       base: 'https://api.example.com',
       route: `/users/${userId}`,
