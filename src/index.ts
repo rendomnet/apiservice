@@ -52,29 +52,35 @@ class ApiService {
     tokenService,
     hooks = {},
     cacheTime,
-    enableDefaultHandlers = true
   }: {
     provider: string;
     tokenService: TokenService;
-    hooks?: Record<StatusCode, HookSettings>;
+    hooks?: Record<StatusCode, HookSettings | null>;
     cacheTime: number;
-    enableDefaultHandlers?: boolean;
   }) {
     this.provider = provider;
     this.tokenService = tokenService;
     
-    // Add default handlers if enabled and not overridden
-    if (enableDefaultHandlers) {
-      // Default 401 handler for token refresh if not already defined and refresh method exists
-      if (!hooks[401] && typeof this.tokenService.refresh === 'function') {
-        hooks[401] = this.createDefaultTokenRefreshHandler();
-      }
-      
-      // Could add other default handlers here (e.g., for 403, 429, etc.)
+    // Create a copy of hooks to avoid modifying the input
+    const finalHooks: Record<StatusCode, HookSettings> = {};
+    
+    // Apply default 401 handler if:
+    // 1. No 401 hook is explicitly defined (or is explicitly null)
+    // 2. TokenService has a refresh method
+    if (hooks[401] === undefined && typeof this.tokenService.refresh === 'function') {
+      finalHooks[401] = this.createDefaultTokenRefreshHandler();
     }
     
-    if (Object.keys(hooks).length > 0) {
-      this.hookManager.setHooks(hooks);
+    // Add user-defined hooks (skipping null/undefined values)
+    for (const [statusCode, hook] of Object.entries(hooks)) {
+      if (hook) {
+        finalHooks[statusCode] = hook;
+      }
+    }
+    
+    // Set the hooks if we have any
+    if (Object.keys(finalHooks).length > 0) {
+      this.hookManager.setHooks(finalHooks);
     }
     
     if (typeof cacheTime !== 'undefined') {

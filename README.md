@@ -25,8 +25,7 @@ api.setup({
     // You can define custom hooks here,
     // or use the default token refresh handler for 401 errors
   },
-  cacheTime: 30000, // 30 seconds
-  enableDefaultHandlers: true // Enable automatic token refresh (default: true)
+  cacheTime: 30000 // 30 seconds
 });
 
 // Make API calls with specific account ID
@@ -49,7 +48,7 @@ const defaultResult = await api.makeApiCall({
 
 ## Automatic Token Refresh
 
-ApiService includes a built-in handler for 401 (Unauthorized) errors that automatically refreshes OAuth tokens. When enabled, this feature:
+ApiService includes a built-in handler for 401 (Unauthorized) errors that automatically refreshes OAuth tokens. This feature:
 
 1. Detects 401 errors from the API
 2. Retrieves the current token for the account
@@ -60,7 +59,7 @@ ApiService includes a built-in handler for 401 (Unauthorized) errors that automa
 To use this feature:
 
 1. Ensure your tokenService implements the `refresh` method
-2. Keep `enableDefaultHandlers: true` in your setup (this is the default)
+2. Don't specify a custom 401 hook (the default will be used automatically)
 
 ```typescript
 // Example token service with refresh capability
@@ -97,8 +96,20 @@ const tokenService = {
 
 If you prefer to handle token refresh yourself, you can either:
 
-1. Disable default handlers: `enableDefaultHandlers: false`
-2. Or provide your own handler for 401 errors which will override the default
+1. Provide your own handler for 401 errors which will override the default
+2. Disable the default handler by setting `hooks: { 401: null }`
+
+```typescript
+// Disable default 401 handler without providing a custom one
+api.setup({
+  provider: 'my-service',
+  tokenService,
+  hooks: {
+    401: null // Explicitly disable the default handler
+  },
+  cacheTime: 30000
+});
+```
 
 ## Account Management
 
@@ -265,14 +276,14 @@ const tokenService = {
 // Create API service instance
 const api = new ApiService();
 
-// Configure API service with default handlers enabled
+// Configure API service with automatic token refresh
 api.setup({
   provider: 'example-api',
   tokenService,
   cacheTime: 30000,
-  // enableDefaultHandlers: true is the default and doesn't need to be specified
   
   // You can still add custom hooks for other status codes
+  // The default 401 handler will be used automatically
   hooks: {
     // Handle 403 Forbidden errors - typically for insufficient permissions
     403: {
@@ -359,4 +370,4 @@ The codebase is built around a main `ApiService` class that coordinates several 
 - `CacheManager`: Implements data caching with customizable expiration times
 - `RetryManager`: Manages retry logic with exponential backoff and other delay strategies
 - `HookManager`: Provides a way to hook into specific status codes and handle them
-- `AccountManager`: Tracks account state and handles account-specific data 
+- `AccountManager`: Tracks account state and handles account-specific data
