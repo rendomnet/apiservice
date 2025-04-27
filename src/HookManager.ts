@@ -30,16 +30,16 @@ export class HookManager {
     error: any
   ): Promise<Record<string, any> | null> {
     const hook = this.hooks[status];
-    if (!hook || !hook.callback) return null;
+    if (!hook || !hook.handler) return null;
     
     const hookKey = `${accountId}-${status}`;
     
     try {
       // Handle waiting for existing hook call if needed
-      if (hook.waitUntilFinished) {
+      if (hook.preventConcurrentCalls) {
         if (!this.hookPromises[hookKey]) {
           this.hookPromises[hookKey] = Promise.resolve(
-            hook.callback(accountId, error.response) || {}
+            hook.handler(accountId, error.response) || {}
           );
         }
         
@@ -49,13 +49,13 @@ export class HookManager {
       } 
       
       // Otherwise just call the hook directly
-      return await hook.callback(accountId, error.response) || {};
+      return await hook.handler(accountId, error.response) || {};
     } 
     catch (hookError) {
-      console.error(`Hook callback failed for status ${status}:`, hookError);
+      console.error(`Hook handler failed for status ${status}:`, hookError);
       
-      if (hook.errorCallback) {
-        await hook.errorCallback(accountId, hookError);
+      if (hook.onHandlerError) {
+        await hook.onHandlerError(accountId, hookError);
       }
       
       throw hookError;
@@ -67,8 +67,8 @@ export class HookManager {
    */
   public async handleRetryFailure(accountId: string, status: StatusCode, error: any): Promise<void> {
     const hook = this.hooks[status];
-    if (hook?.onRetryFail) {
-      await hook.onRetryFail(accountId, error);
+    if (hook?.onMaxRetriesExceeded) {
+      await hook.onMaxRetriesExceeded(accountId, error);
     }
   }
 
@@ -77,6 +77,6 @@ export class HookManager {
    */
   public shouldRetry(status: StatusCode): boolean {
     const hook = this.hooks[status];
-    return !!hook && !!hook.retryCall;
+    return !!hook && !!hook.shouldRetry;
   }
 } 

@@ -46,14 +46,51 @@ interface ApiCallParams {
 }
 
 interface HookSettings {
-  retryCall: boolean;
-  retryDelay: boolean;
-  waitUntilFinished?: boolean;
+  /**
+   * Whether to retry the API call when this hook is triggered
+   */
+  shouldRetry: boolean;
+  
+  /**
+   * Whether to apply delay between retries
+   */
+  useRetryDelay: boolean;
+  
+  /**
+   * The maximum number of retry attempts for this status code
+   */
   maxRetries?: number;
-  callback: (accountId: string, response: any) => Promise<any>;
-  onRetryFail?: (accountId: string, error: any) => Promise<void>;
-  errorCallback?: (accountId: string, error: any) => Promise<void>;
+  
+  /**
+   * Wait for an existing hook to complete before starting a new one
+   * Useful for avoiding duplicate refresh token calls
+   */
+  preventConcurrentCalls?: boolean;
+  
+  /**
+   * The main handler function called when this status code is encountered
+   * Return an object to update the API call parameters for the retry
+   */
+  handler: (accountId: string, response: any) => Promise<any>;
+  
+  /**
+   * Called when all retry attempts for this status code have failed
+   */
+  onMaxRetriesExceeded?: (accountId: string, error: any) => Promise<void>;
+  
+  /**
+   * Called when the handler function throws an error
+   */
+  onHandlerError?: (accountId: string, error: any) => Promise<void>;
+  
+  /**
+   * Custom strategy for calculating delay between retries
+   */
   delayStrategy?: DelayStrategy;
+  
+  /**
+   * Maximum delay in milliseconds between retries
+   */
   maxDelay?: number;
 }
 

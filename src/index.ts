@@ -168,7 +168,7 @@ class ApiService {
         }
         
         // Wait before retrying if needed
-        if (activeHook?.retryDelay) {
+        if (activeHook?.useRetryDelay) {
           await this.retryManager.calculateAndDelay({
             attempt: statusRetries[status],
             response: error.response,

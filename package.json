@@ -1,6 +1,6 @@
 {
   "name": "@rendomnet/apiservice",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A robust TypeScript API service framework for making authenticated API calls",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
