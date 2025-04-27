@@ -20,6 +20,7 @@ import {
 class ApiService {
   public provider: string; // Service provider name
   private tokenService: TokenService;
+  private defaultAccountId?: string; // Default account ID
   
   // Component managers
   private cacheManager: CacheManager;
@@ -51,14 +52,17 @@ class ApiService {
     tokenService,
     hooks,
     cacheTime,
+    defaultAccountId,
   }: {
     provider: string;
     tokenService: TokenService;
     hooks?: Record<StatusCode, HookSettings>;
     cacheTime: number;
+    defaultAccountId?: string;
   }) {
     this.provider = provider;
     this.tokenService = tokenService;
+    this.defaultAccountId = defaultAccountId;
     
     if (hooks) {
       this.hookManager.setHooks(hooks);
@@ -77,6 +81,13 @@ class ApiService {
   }
 
   /**
+   * Set the default account ID
+   */
+  public setDefaultAccountId(accountId: string): void {
+    this.defaultAccountId = accountId;
+  }
+
+  /**
    * Update account data
    */
   public updateAccountData(accountId: string, data: Partial<Record<string, any>>): void {
@@ -86,18 +97,24 @@ class ApiService {
   /**
    * Main API call method
    */
-  public async makeApiCall(apiCallParams: ApiCallParams): Promise<any> {
-    console.log('🔄 makeApiCall', this.provider, apiCallParams.accountId);
+  public async makeApiCall(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
+    // Use default account ID if not provided
+    const params: ApiCallParams = {
+      ...apiCallParams,
+      accountId: apiCallParams.accountId || this.defaultAccountId || 'default',
+    };
+
+    console.log('🔄 makeApiCall', this.provider, params.accountId);
     
     // Check cache first
-    const cachedData = this.cacheManager.getFromCache(apiCallParams);
+    const cachedData = this.cacheManager.getFromCache(params);
     if (cachedData) return cachedData;
 
     // Make the API call with retry capability
-    const result = await this.makeRequestWithRetry(apiCallParams);
+    const result = await this.makeRequestWithRetry(params);
     
     // Cache the result
-    this.cacheManager.saveToCache(apiCallParams, result);
+    this.cacheManager.saveToCache(params, result);
     
     return result;
   }

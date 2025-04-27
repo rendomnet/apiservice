@@ -96,9 +96,9 @@ interface HookSettings {
 
 type StatusCode = string | number;
 type TokenService = {
-  get: (accountId: string) => Promise<Token>;
-  set: (accountId: string, token: Partial<Token>) => Promise<void>;
-  refresh?: (accountId: string, refreshToken: string) => Promise<OAuthToken>;
+  get: (accountId?: string) => Promise<Token>;
+  set: (token: Partial<Token>, accountId?: string) => Promise<void>;
+  refresh?: (refreshToken: string, accountId?: string) => Promise<OAuthToken>;
 };
 
 export {

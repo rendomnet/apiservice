@@ -32,7 +32,7 @@ export class HookManager {
     const hook = this.hooks[status];
     if (!hook || !hook.handler) return null;
     
-    const hookKey = `${accountId}-${status}`;
+    const hookKey = `${accountId || 'default'}-${status}`;
     
     try {
       // Handle waiting for existing hook call if needed

@@ -8,6 +8,7 @@ A robust TypeScript API service framework for making authenticated API calls wit
 - ✅ Status code-specific hooks for handling errors
 - ✅ Account state tracking
 - ✅ File upload support
+- ✅ Support for multiple accounts or a single default account
 
 ## Usage
 
@@ -29,10 +30,11 @@ api.setup({
       }
     }
   },
-  cacheTime: 30000 // 30 seconds
+  cacheTime: 30000, // 30 seconds
+  defaultAccountId: 'default-user' // Optional: Set a default account ID
 });
 
-// Make API calls
+// Make API calls with specific account ID
 const result = await api.makeApiCall({
   accountId: 'user123',
   method: 'GET',
@@ -40,7 +42,45 @@ const result = await api.makeApiCall({
   route: '/users',
   requireAuth: true
 });
+
+// Or use the default account ID (if set during setup)
+const defaultResult = await api.makeApiCall({
+  method: 'GET',
+  base: 'https://api.example.com',
+  route: '/users',
+  requireAuth: true
+});
 ```
+
+## Account Management
+
+ApiService supports multiple accounts through the `accountId` parameter. This allows you to:
+
+1. **Manage multiple tokens** - Maintain separate authentication tokens for different users or services
+2. **Track state by account** - Each account has its own state tracking (request times, failures)
+3. **Apply account-specific retry logic** - Hooks can behave differently based on the account
+
+For simple applications that only need a single account, you can set a default account ID:
+
+```typescript
+// Set default account during setup
+api.setup({
+  // ... other options
+  defaultAccountId: 'default-user'
+});
+
+// Or set it later
+api.setDefaultAccountId('default-user');
+
+// Then make calls without specifying accountId
+const result = await api.makeApiCall({
+  method: 'GET',
+  base: 'https://api.example.com',
+  route: '/users'
+});
+```
+
+If no accountId is provided and no default is set, ApiService uses 'default' as the account ID.
 
 ## Token Service
 
@@ -50,14 +90,14 @@ ApiService requires a `tokenService` for authentication. This service manages to
 
 ```typescript
 interface TokenService {
-  // Get a token for an account
-  get: (accountId: string) => Promise<Token>;
+  // Get a token for an account (accountId is optional if using a default account)
+  get: (accountId?: string) => Promise<Token>;
   
   // Save a token for an account
-  set: (accountId: string, token: Partial<Token>) => Promise<void>;
+  set: (token: Partial<Token>, accountId?: string) => Promise<void>;
   
   // Optional: Refresh an expired token
-  refresh?: (accountId: string, refreshToken: string) => Promise<OAuthToken>;
+  refresh?: (refreshToken: string, accountId?: string) => Promise<OAuthToken>;
 }
 
 // The Token interface
@@ -90,7 +130,7 @@ Here's a simple `tokenService` implementation using localStorage:
 // Simple token service implementation
 const tokenService = {
   // Get token for an account
-  async get(accountId: string): Promise<Token> {
+  async get(accountId = 'default'): Promise<Token> {
     const storedToken = localStorage.getItem(`token-${accountId}`);
     if (!storedToken) {
       throw new Error(`No token found for account ${accountId}`);
@@ -99,7 +139,7 @@ const tokenService = {
   },
   
   // Save token for an account
-  async set(accountId: string, token: Partial<Token>): Promise<void> {
+  async set(token: Partial<Token>, accountId = 'default'): Promise<void> {
     const existingToken = localStorage.getItem(`token-${accountId}`);
     const currentToken = existingToken ? JSON.parse(existingToken) : { accountId };
     const updatedToken = { ...currentToken, ...token, updatedAt: new Date().toISOString() };
@@ -107,7 +147,7 @@ const tokenService = {
   },
   
   // Refresh token implementation
-  async refresh(accountId: string, refreshToken: string): Promise<OAuthToken> {
+  async refresh(refreshToken: string, accountId = 'default'): Promise<OAuthToken> {
     // Make a request to your OAuth token endpoint
     const response = await fetch('https://api.example.com/oauth/token', {
       method: 'POST',
@@ -126,10 +166,10 @@ const tokenService = {
     const newToken = await response.json();
     
     // Update the stored token
-    await this.set(accountId, {
+    await this.set({
       access_token: newToken.access_token,
       refresh_token: newToken.refresh_token
-    });
+    }, accountId);
     
     return newToken;
   }
@@ -145,9 +185,9 @@ import ApiService from '@rendomnet/apiservice';
 
 // Create token service
 const tokenService = {
-  async get(accountId) { /* implementation as above */ },
-  async set(accountId, token) { /* implementation as above */ },
-  async refresh(accountId, refreshToken) { /* implementation as above */ }
+  async get(accountId = 'default') { /* implementation as above */ },
+  async set(token, accountId = 'default') { /* implementation as above */ },
+  async refresh(refreshToken, accountId = 'default') { /* implementation as above */ }
 };
 
 // Create API service instance
@@ -157,6 +197,7 @@ const api = new ApiService();
 api.setup({
   provider: 'example-api',
   tokenService,
+  defaultAccountId: 'default', // Optional: Set a default account
   hooks: {
     // Handle 401 Unauthorized errors - typically for expired tokens
     401: {
@@ -177,7 +218,7 @@ api.setup({
           }
           
           // Try to refresh the token
-          await tokenService.refresh(accountId, currentToken.refresh_token);
+          await tokenService.refresh(currentToken.refresh_token, accountId);
           
           // Return empty object to retry with the same parameters
           // The ApiService will automatically get the new token on retry
@@ -214,11 +255,11 @@ api.setup({
   cacheTime: 30000
 });
 
-// Use the API service
+// Use the API service (with default account)
 async function fetchUserData(userId) {
   try {
     return await api.makeApiCall({
-      accountId: 'user123',
+      // No accountId needed if using default
       method: 'GET',
       base: 'https://api.example.com',
       route: `/users/${userId}`,
