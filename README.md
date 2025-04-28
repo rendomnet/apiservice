@@ -45,14 +45,6 @@ const customResult = await api.call({
   useAuth: true
 });
 
-// Alternative way using baseUrl parameter 
-const anotherResult = await api.call({
-  method: 'GET',
-  baseUrl: 'https://api3.example.com', // Alternative parameter name that works the same way
-  route: '/users',
-  useAuth: true
-});
-
 // Or omit accountId to use the default account ('default')
 const defaultResult = await api.call({
   method: 'GET',
@@ -430,15 +422,6 @@ async function fetchCombinedData() {
       route: '/special-data',
       useAuth: true,
       base: 'https://special-api.primary.com'
-    }),
-    
-    // Alternative way using baseUrl parameter
-    api.call({
-      provider: 'primary-api',
-      method: 'GET',
-      route: '/another-special-data',
-      useAuth: true,
-      baseUrl: 'https://another-api.primary.com'
     })
   ]);
   
