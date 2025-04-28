@@ -11,6 +11,27 @@ A robust TypeScript API service framework for making authenticated API calls wit
 - ✅ Support for multiple accounts or a single default account
 - ✅ Automatic token refresh for 401 errors
 
+## Installation
+
+```bash
+npm install @rendomnet/apiservice
+```
+
+## Testing
+
+ApiService includes a comprehensive test suite using Jest. To run the tests:
+
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests in watch mode during development
+npm run test:watch
+```
+
 ## Usage
 
 ```typescript
