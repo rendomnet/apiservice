@@ -14,7 +14,7 @@ A robust TypeScript API service framework for making authenticated API calls wit
 ## Usage
 
 ```typescript
-import ApiService from '@rendomnet/apiservice';
+import ApiService from 'apiservice';
 
 // Create and setup the API service
 const api = new ApiService();
@@ -237,7 +237,7 @@ const tokenService = {
 Here's a complete example showing how to use ApiService with automatic token refresh:
 
 ```typescript
-import ApiService from '@rendomnet/apiservice';
+import ApiService from 'apiservice';
 
 // Create token service with refresh capability
 const tokenService = {

@@ -60,8 +60,9 @@ export class HttpClient {
   /**
    * Build URL with query parameters
    */
-  private buildUrl(base: string, route?: string, queryParams?: URLSearchParams): string {
-    let url = `${base}${route || ''}`;
+  private buildUrl(base: string | undefined, route?: string, queryParams?: URLSearchParams): string {
+    const baseUrl = base || '';
+    let url = `${baseUrl}${route || ''}`;
     if (queryParams) url += `?${qs.stringify(queryParams)}`;
     return url;
   }
