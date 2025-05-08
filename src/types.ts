@@ -95,6 +95,29 @@ interface HookSettings {
 }
 
 type StatusCode = string | number;
+
+interface AuthProvider {
+  /**
+   * Returns headers or other auth data for a request
+   */
+  getAuthHeaders(accountId?: string): Promise<Record<string, string>>;
+  /**
+   * Optional: refresh credentials if supported (for OAuth, etc.)
+   */
+  refresh?(refreshToken: string, accountId?: string): Promise<any>;
+}
+
+interface ApiKeyAuthProviderOptions {
+  apiKey: string;
+  headerName?: string;
+  queryParamName?: string;
+}
+
+interface BasicAuthProviderOptions {
+  username: string;
+  password: string;
+}
+
 type TokenService = {
   get: (accountId?: string) => Promise<Token>;
   set: (token: Partial<Token>, accountId?: string) => Promise<void>;
@@ -109,5 +132,8 @@ export {
   ApiCallParams,
   HookSettings,
   StatusCode,
+  AuthProvider,
+  ApiKeyAuthProviderOptions,
+  BasicAuthProviderOptions,
   TokenService,
 };

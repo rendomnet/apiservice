@@ -1,11 +1,12 @@
 import { 
-  TokenService,
+  AuthProvider,
   ApiCallParams,
   HookSettings,
   StatusCode,
   Token,
   OAuthToken
 } from './types';
+import { ApiKeyAuthProvider } from './ApiKeyAuthProvider';
 import {
   CacheManager,
   RetryManager,
@@ -20,7 +21,7 @@ import {
  */
 class ApiService {
   public provider: string; // Service provider name
-  private tokenService: TokenService;
+  private authProvider: AuthProvider;
   private baseUrl: string = ''; // Default base URL
   
   // Component managers
@@ -35,7 +36,7 @@ class ApiService {
 
   constructor() {
     this.provider = '';
-    this.tokenService = {} as TokenService;
+    this.authProvider = {} as AuthProvider;
     
     // Initialize component managers
     this.cacheManager = new CacheManager();
@@ -50,19 +51,19 @@ class ApiService {
    */
   public setup({
     provider,
-    tokenService,
+    authProvider,
     hooks = {},
     cacheTime,
     baseUrl = '',
   }: {
     provider: string;
-    tokenService: TokenService;
+    authProvider: AuthProvider;
     hooks?: Record<StatusCode, HookSettings | null>;
     cacheTime: number;
     baseUrl?: string;
   }) {
     this.provider = provider;
-    this.tokenService = tokenService;
+    this.authProvider = authProvider;
     this.baseUrl = baseUrl;
     
     // Create a copy of hooks to avoid modifying the input
@@ -70,9 +71,9 @@ class ApiService {
     
     // Apply default 401 handler if:
     // 1. No 401 hook is explicitly defined (or is explicitly null)
-    // 2. TokenService has a refresh method
-    if (hooks[401] === undefined && typeof this.tokenService.refresh === 'function') {
-      finalHooks[401] = this.createDefaultTokenRefreshHandler();
+    // 2. AuthProvider has a refresh method
+    if (hooks[401] === undefined && typeof this.authProvider.refresh === 'function') {
+      finalHooks[401] = this.createDefaultAuthRefreshHandler();
     }
     
     // Add user-defined hooks (skipping null/undefined values)
@@ -94,9 +95,9 @@ class ApiService {
   
   /**
    * Create a default handler for 401 (Unauthorized) errors
-   * that implements standard token refresh behavior
+   * that implements standard credential refresh behavior
    */
-  private createDefaultTokenRefreshHandler(): HookSettings {
+  private createDefaultAuthRefreshHandler(): HookSettings {
     return {
       shouldRetry: true,
       useRetryDelay: true,
@@ -104,32 +105,16 @@ class ApiService {
       maxRetries: 1,
       handler: async (accountId) => {
         try {
-          console.log(`🔄 Using default token refresh handler for ${accountId}`);
-          
-          // Get current token to extract refresh token
-          const currentToken = await this.tokenService.get(accountId);
-          
-          if (!currentToken.refresh_token) {
-            throw new Error(`No refresh token available for account ${accountId}`);
+          console.log(`🔄 Using default auth refresh handler for ${accountId}`);
+          if (!this.authProvider.refresh) {
+            throw new Error('No refresh method available on auth provider');
           }
-          
-          // Refresh the token
-          const newToken = await this.tokenService.refresh!(currentToken.refresh_token, accountId);
-          
-          if (!newToken || !newToken.access_token) {
-            throw new Error('Token refresh returned invalid data');
-          }
-          
-          // Update the token in storage
-          await this.tokenService.set({
-            access_token: newToken.access_token,
-            refresh_token: newToken.refresh_token || currentToken.refresh_token
-          }, accountId);
-          
-          // Return empty object to retry with same parameters
+          // You may want to store refresh token in account data or pass it in another way
+          // For now, assume refresh token is managed internally by the provider
+          await this.authProvider.refresh('', accountId);
           return {};
         } catch (error) {
-          console.error(`Token refresh failed for ${accountId}:`, error);
+          console.error(`Auth refresh failed for ${accountId}:`, error);
           throw error;
         }
       },
@@ -165,6 +150,18 @@ class ApiService {
       base: apiCallParams.base || this.baseUrl,
     };
 
+    // If using ApiKeyAuthProvider with queryParamName, add API key to queryParams
+    if (
+      this.authProvider instanceof ApiKeyAuthProvider &&
+      (this.authProvider as any).queryParamName
+    ) {
+      const queryParamName = (this.authProvider as any).queryParamName;
+      const apiKey = (this.authProvider as any).apiKey;
+      const urlParams = params.queryParams ? new URLSearchParams(params.queryParams) : new URLSearchParams();
+      urlParams.set(queryParamName, apiKey);
+      params.queryParams = urlParams;
+    }
+
     console.log('🔄 API call', this.provider, params.accountId, params.method, params.route);
     
     // Check cache first
@@ -195,27 +192,40 @@ class ApiService {
     const { accountId } = apiCallParams;
     let attempts = 0;
     const statusRetries: Record<StatusCode, number> = {};
-    
-    // Copy the params to avoid mutation issues
     let currentParams = { ...apiCallParams };
-
+    // If using ApiKeyAuthProvider with queryParamName, add API key to queryParams
+    if (
+      this.authProvider instanceof ApiKeyAuthProvider &&
+      (this.authProvider as any).queryParamName
+    ) {
+      const queryParamName = (this.authProvider as any).queryParamName;
+      const apiKey = (this.authProvider as any).apiKey;
+      const urlParams = currentParams.queryParams ? new URLSearchParams(currentParams.queryParams) : new URLSearchParams();
+      urlParams.set(queryParamName, apiKey);
+      currentParams.queryParams = urlParams;
+    }
     // Main retry loop
     while (attempts < this.maxAttempts) {
       attempts++;
       
       try {
-        // Get authentication token if needed
-        const authToken: Token | Record<string, any> = apiCallParams.useAuth !== false
-          ? await this.tokenService.get(accountId)
+        // Get authentication headers if needed
+        const authHeaders: Record<string, string> = apiCallParams.useAuth !== false
+          ? await this.authProvider.getAuthHeaders(accountId)
           : {};
-          
+        // Merge auth headers into params.headers
+        currentParams.headers = {
+          ...(currentParams.headers || {}),
+          ...authHeaders,
+        };
+        
         // Verify we have authentication if required
-        if (apiCallParams.useAuth !== false && !apiCallParams.accessToken && !authToken.access_token) {
+        if (apiCallParams.useAuth !== false && Object.keys(authHeaders).length === 0) {
           throw new Error(`${this.provider} credentials not found for account ID ${accountId}`);
         }
         
         // Make the actual API call
-        const response = await this.httpClient.makeRequest(currentParams, authToken);
+        const response = await this.httpClient.makeRequest(currentParams, {});
         
         // Success - update account status and return result
         this.accountManager.setLastRequestFailed(accountId, false);
