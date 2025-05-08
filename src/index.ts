@@ -220,7 +220,14 @@ class ApiService {
         };
         
         // Verify we have authentication if required
-        if (apiCallParams.useAuth !== false && Object.keys(authHeaders).length === 0) {
+        if (
+          apiCallParams.useAuth !== false &&
+          Object.keys(authHeaders).length === 0 &&
+          !(
+            this.authProvider instanceof ApiKeyAuthProvider &&
+            (this.authProvider as any).queryParamName
+          )
+        ) {
           throw new Error(`${this.provider} credentials not found for account ID ${accountId}`);
         }
         

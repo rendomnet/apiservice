@@ -2,14 +2,14 @@
 
 A robust TypeScript API service framework for making authenticated API calls with advanced features:
 
-- ✅ Authentication handling with token management
+- ✅ Multiple authentication strategies (token, API key, basic auth, custom)
 - ✅ Request caching with configurable time periods
 - ✅ Advanced retry mechanisms with exponential backoff
 - ✅ Status code-specific hooks for handling errors
 - ✅ Account state tracking
 - ✅ File upload support
 - ✅ Support for multiple accounts or a single default account
-- ✅ Automatic token refresh for 401 errors
+- ✅ Automatic token refresh for 401 errors (if supported by provider)
 
 ## Installation
 
@@ -36,15 +36,28 @@ npm run test:watch
 
 ```typescript
 import ApiService from 'apiservice';
+import { TokenAuthProvider, ApiKeyAuthProvider, BasicAuthProvider } from 'apiservice';
+
+// Token-based (OAuth2, etc.)
+const tokenProvider = new TokenAuthProvider(myTokenService);
+
+// API key in header
+const apiKeyHeaderProvider = new ApiKeyAuthProvider({ apiKey: 'my-key', headerName: 'x-api-key' });
+
+// API key in query param
+const apiKeyQueryProvider = new ApiKeyAuthProvider({ apiKey: 'my-key', queryParamName: 'api_key' });
+
+// Basic Auth
+const basicProvider = new BasicAuthProvider({ username: 'user', password: 'pass' });
 
 // Create and setup the API service
 const api = new ApiService();
 api.setup({
-  provider: 'my-service', // 'google' | 'microsoft' and etc.
-  tokenService: myTokenService,
+  provider: 'my-service',
+  authProvider: tokenProvider, // or apiKeyHeaderProvider, apiKeyQueryProvider, basicProvider
   hooks: {
     // You can define custom hooks here,
-    // or use the default token refresh handler for 401 errors
+    // or use the default token refresh handler for 401 errors (if supported)
   },
   cacheTime: 30000, // 30 seconds
   baseUrl: 'https://api.example.com' // Set default base URL
@@ -74,53 +87,76 @@ const defaultResult = await api.call({
 });
 ```
 
-## Automatic Token Refresh
+## Authentication Providers
 
-ApiService includes a built-in handler for 401 (Unauthorized) errors that automatically refreshes OAuth tokens. This feature:
+ApiService supports multiple authentication strategies via the `AuthProvider` interface. You can use built-in providers or implement your own.
 
-1. Detects 401 errors from the API
-2. Retrieves the current token for the account
-3. Uses the `refresh` method from your tokenService to obtain a new token
-4. Updates the stored token with the new one
-5. Retries the original API request with the new token
-
-To use this feature:
-
-1. Ensure your tokenService implements the `refresh` method
-2. Don't specify a custom 401 hook (the default will be used automatically)
+### TokenAuthProvider (OAuth2, Bearer Token)
 
 ```typescript
-// Example token service with refresh capability
+import { TokenAuthProvider } from 'apiservice';
+
 const tokenService = {
   async get(accountId = 'default') {
     // Get token from storage
     return storedToken;
   },
-  
   async set(token, accountId = 'default') {
     // Save token to storage
   },
-  
   async refresh(refreshToken, accountId = 'default') {
     // Refresh the token with your OAuth provider
-    const response = await fetch('https://api.example.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: 'your-client-id'
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to refresh token');
-    }
-    
-    return await response.json();
+    // ...
+    return newToken;
   }
 };
+
+const tokenProvider = new TokenAuthProvider(tokenService);
 ```
+
+### ApiKeyAuthProvider (Header or Query Param)
+
+```typescript
+import { ApiKeyAuthProvider } from 'apiservice';
+
+// API key in header
+const apiKeyHeaderProvider = new ApiKeyAuthProvider({ apiKey: 'my-key', headerName: 'x-api-key' });
+
+// API key in query param
+const apiKeyQueryProvider = new ApiKeyAuthProvider({ apiKey: 'my-key', queryParamName: 'api_key' });
+```
+
+### BasicAuthProvider
+
+```typescript
+import { BasicAuthProvider } from 'apiservice';
+
+const basicProvider = new BasicAuthProvider({ username: 'user', password: 'pass' });
+```
+
+### Custom AuthProvider
+
+You can implement your own provider by implementing the `AuthProvider` interface:
+
+```typescript
+interface AuthProvider {
+  getAuthHeaders(accountId?: string): Promise<Record<string, string>>;
+  refresh?(refreshToken: string, accountId?: string): Promise<any>;
+}
+```
+
+## Automatic Token Refresh
+
+If your provider supports token refresh (like `TokenAuthProvider`), ApiService includes a built-in handler for 401 (Unauthorized) errors that automatically refreshes tokens. This feature:
+
+1. Detects 401 errors from the API
+2. Calls the provider's `refresh` method
+3. Retries the original API request with the new token
+
+To use this feature:
+
+- Use a provider that implements `refresh` (like `TokenAuthProvider`)
+- Don't specify a custom 401 hook (the default will be used automatically)
 
 If you prefer to handle token refresh yourself, you can either:
 
@@ -128,10 +164,9 @@ If you prefer to handle token refresh yourself, you can either:
 2. Disable the default handler by setting `hooks: { 401: null }`
 
 ```typescript
-// Disable default 401 handler without providing a custom one
 api.setup({
   provider: 'my-service',
-  tokenService,
+  authProvider: tokenProvider,
   hooks: {
     401: null // Explicitly disable the default handler
   },
@@ -159,169 +194,44 @@ const result = await api.call({
 
 If no accountId is provided, ApiService automatically uses 'default' as the account ID.
 
-## Token Service
-
-ApiService requires a `tokenService` for authentication. This service manages tokens for different accounts and handles token retrieval, storage, and refresh operations.
-
-### TokenService Interface
+## AuthProvider Interface
 
 ```typescript
-interface TokenService {
-  // Get a token for an account (accountId is optional, defaults to 'default')
-  get: (accountId?: string) => Promise<Token>;
-  
-  // Save a token for an account
-  set: (token: Partial<Token>, accountId?: string) => Promise<void>;
-  
-  // Optional: Refresh an expired token
-  refresh?: (refreshToken: string, accountId?: string) => Promise<OAuthToken>;
-}
-
-// The Token interface
-interface Token {
-  accountId: string;
-  access_token: string;
-  refresh_token: string;
-  provider: string;
-  enabled?: boolean;
-  updatedAt?: string;
-  primary?: boolean;
-}
-
-// OAuth token response
-interface OAuthToken {
-  access_token: string;
-  expires_in: number;
-  id_token: string;
-  refresh_token: string;
-  scope: string;
-  token_type: string;
+interface AuthProvider {
+  getAuthHeaders(accountId?: string): Promise<Record<string, string>>;
+  refresh?(refreshToken: string, accountId?: string): Promise<any>;
 }
 ```
 
-### Example Implementation
-
-Here's a simple `tokenService` implementation using localStorage:
-
-```typescript
-// Simple token service implementation
-const tokenService = {
-  // Get token for an account
-  async get(accountId = 'default'): Promise<Token> {
-    const storedToken = localStorage.getItem(`token-${accountId}`);
-    if (!storedToken) {
-      throw new Error(`No token found for account ${accountId}`);
-    }
-    return JSON.parse(storedToken);
-  },
-  
-  // Save token for an account
-  async set(token: Partial<Token>, accountId = 'default'): Promise<void> {
-    const existingToken = localStorage.getItem(`token-${accountId}`);
-    const currentToken = existingToken ? JSON.parse(existingToken) : { accountId };
-    const updatedToken = { ...currentToken, ...token, updatedAt: new Date().toISOString() };
-    localStorage.setItem(`token-${accountId}`, JSON.stringify(updatedToken));
-  },
-  
-  // Refresh token implementation
-  async refresh(refreshToken: string, accountId = 'default'): Promise<OAuthToken> {
-    // Make a request to your OAuth token endpoint
-    const response = await fetch('https://api.example.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: 'your-client-id'
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to refresh token');
-    }
-    
-    const newToken = await response.json();
-    
-    // Update the stored token
-    await this.set({
-      access_token: newToken.access_token,
-      refresh_token: newToken.refresh_token
-    }, accountId);
-    
-    return newToken;
-  }
-};
-```
-
-### Complete Authorization Flow Example
-
-Here's a complete example showing how to use ApiService with automatic token refresh:
+## Example: Complete Authorization Flow (TokenAuthProvider)
 
 ```typescript
 import ApiService from 'apiservice';
+import { TokenAuthProvider } from 'apiservice';
 
-// Create token service with refresh capability
 const tokenService = {
-  // Get token from storage
   async get(accountId = 'default') {
-    const storedToken = localStorage.getItem(`token-${accountId}`);
-    if (!storedToken) {
-      throw new Error(`No token found for account ${accountId}`);
-    }
-    return JSON.parse(storedToken);
+    // ...
   },
-  
-  // Save token to storage
   async set(token, accountId = 'default') {
-    const existingToken = localStorage.getItem(`token-${accountId}`);
-    const currentToken = existingToken ? JSON.parse(existingToken) : { accountId };
-    const updatedToken = { ...currentToken, ...token, updatedAt: new Date().toISOString() };
-    localStorage.setItem(`token-${accountId}`, JSON.stringify(updatedToken));
+    // ...
   },
-  
-  // Refresh token with OAuth provider
   async refresh(refreshToken, accountId = 'default') {
-    // Real implementation would call your OAuth endpoint
-    const response = await fetch('https://api.example.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: 'your-client-id'
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to refresh token');
-    }
-    
-    return await response.json();
+    // ...
   }
 };
 
-// Create API service instance
 const api = new ApiService();
-
-// Configure API service with automatic token refresh
 api.setup({
   provider: 'example-api',
-  tokenService,
+  authProvider: new TokenAuthProvider(tokenService),
   cacheTime: 30000,
   baseUrl: 'https://api.example.com',
-  
-  // You can still add custom hooks for other status codes
-  // The default 401 handler will be used automatically
   hooks: {
-    // Handle 403 Forbidden errors - typically for insufficient permissions
     403: {
       shouldRetry: false,
       handler: async (accountId, response) => {
-        console.warn('Permission denied:', response);
-        // You could trigger a permissions UI here
-        window.dispatchEvent(new CustomEvent('permission:required', { 
-          detail: { accountId, resource: response.resource } 
-        }));
+        // ...
         return null;
       }
     }
@@ -330,19 +240,11 @@ api.setup({
 
 // Use the API service
 async function fetchUserData(userId) {
-  try {
-    return await api.call({
-      // No accountId needed - will use 'default' automatically
-      method: 'GET',
-      route: `/users/${userId}`,
-      useAuth: true
-    });
-  } catch (error) {
-    // 401 errors with valid refresh tokens will be automatically handled
-    // This catch will only trigger for other errors or if refresh fails
-    console.error('Failed to fetch user data:', error);
-    throw error;
-  }
+  return await api.call({
+    method: 'GET',
+    route: `/users/${userId}`,
+    useAuth: true
+  });
 }
 ```
 
@@ -353,38 +255,24 @@ Hooks can be configured to handle specific HTTP status codes:
 ```typescript
 const hooks = {
   401: {
-    // Core settings
-    shouldRetry: true,           // Whether to retry the API call when this hook is triggered
-    useRetryDelay: true,         // Whether to apply delay between retries
-    maxRetries: 3,               // Maximum number of retry attempts for this status code (default: 4)
-    
-    // Advanced options
-    preventConcurrentCalls: true, // Wait for an existing hook to complete before starting a new one
-                                  // Useful for avoiding duplicate refresh token calls
-    
-    // Handler functions
+    shouldRetry: true,
+    useRetryDelay: true,
+    maxRetries: 3,
+    preventConcurrentCalls: true,
     handler: async (accountId, response) => {
-      // Main handler function called when this status code is encountered
-      // Return an object to update the API call parameters for the retry
+      // ...
       return { /* updated parameters */ };
     },
-    
     onMaxRetriesExceeded: async (accountId, error) => {
-      // Called when all retry attempts for this status code have failed
+      // ...
     },
-    
     onHandlerError: async (accountId, error) => {
-      // Called when the handler function throws an error
+      // ...
     },
-    
-    // Delay strategy settings
     delayStrategy: {
-      calculate: (attempt, response) => {
-        // Custom strategy for calculating delay between retries
-        return 1000 * Math.pow(2, attempt - 1); // Exponential backoff
-      }
+      calculate: (attempt, response) => 1000 * Math.pow(2, attempt - 1)
     },
-    maxDelay: 30000 // Maximum delay in milliseconds between retries (default: 60000)
+    maxDelay: 30000
   }
 }
 ```
@@ -403,18 +291,23 @@ The codebase is built around a main `ApiService` class that coordinates several 
 
 ### Multiple API Providers
 
-```javascript
-// Configure multiple API providers
+```typescript
+import { ApiService, TokenAuthProvider, ApiKeyAuthProvider } from 'apiservice';
+
+const primaryProvider = new TokenAuthProvider(primaryTokenService);
+const secondaryProvider = new ApiKeyAuthProvider({ apiKey: 'secondary-key', headerName: 'x-api-key' });
+
+const api = new ApiService();
 api.setup({
   provider: 'primary-api',
-  tokenService: primaryTokenService,
+  authProvider: primaryProvider,
   cacheTime: 30000,
   baseUrl: 'https://api.primary.com'
 });
 
 api.setup({
   provider: 'secondary-api',
-  tokenService: secondaryTokenService,
+  authProvider: secondaryProvider,
   cacheTime: 60000,
   baseUrl: 'https://api.secondary.com'
 });
@@ -428,15 +321,12 @@ async function fetchCombinedData() {
       route: '/data',
       useAuth: true
     }),
-    
     api.call({
       provider: 'secondary-api',
       method: 'GET',
       route: '/data',
       useAuth: true
     }),
-    
-    // Override baseUrl for a specific API call
     api.call({
       provider: 'primary-api',
       method: 'GET',
@@ -445,7 +335,6 @@ async function fetchCombinedData() {
       base: 'https://special-api.primary.com'
     })
   ]);
-  
   return { primaryData, secondaryData };
 }
 ```
