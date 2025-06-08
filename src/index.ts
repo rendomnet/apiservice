@@ -141,7 +141,7 @@ class ApiService {
   /**
    * Make an API call with all features (caching, retry, hooks)
    */
-  public async call(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
+  public async call(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string; abortSignal?: AbortSignal }): Promise<any> {
     // Use 'default' as fallback if accountId is not provided
     // and use default baseUrl if not provided
     const params: ApiCallParams = {
@@ -181,7 +181,7 @@ class ApiService {
    * Legacy method for backward compatibility
    * @deprecated Use call() instead
    */
-  public async makeApiCall(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string }): Promise<any> {
+  public async makeApiCall(apiCallParams: Omit<ApiCallParams, 'accountId'> & { accountId?: string; abortSignal?: AbortSignal }): Promise<any> {
     return this.call(apiCallParams);
   }
 
@@ -189,7 +189,7 @@ class ApiService {
    * Make a request with retry capability
    */
   private async makeRequestWithRetry(apiCallParams: ApiCallParams): Promise<any> {
-    const { accountId } = apiCallParams;
+    const { accountId, abortSignal } = apiCallParams;
     let attempts = 0;
     const statusRetries: Record<StatusCode, number> = {};
     let currentParams = { ...apiCallParams };
@@ -206,6 +206,9 @@ class ApiService {
     }
     // Main retry loop
     while (attempts < this.maxAttempts) {
+      if (abortSignal?.aborted) {
+        throw new Error('Request aborted');
+      }
       attempts++;
       
       try {

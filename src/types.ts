@@ -43,6 +43,7 @@ interface ApiCallParams {
   contentType?: string;
   cacheTime?: number;
   files?: File[];
+  abortSignal?: AbortSignal;
 }
 
 interface HookSettings {

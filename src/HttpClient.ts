@@ -24,6 +24,7 @@ export class HttpClient {
       accessToken: forcedAccessToken,
       useAuth = true,
       files,
+      abortSignal,
     } = apiParams;
     
     // Build URL and request body
@@ -44,6 +45,7 @@ export class HttpClient {
       forcedAccessToken,
       useAuth,
       headers,
+      abortSignal,
     });
 
     // Make the request
@@ -94,6 +96,7 @@ export class HttpClient {
     forcedAccessToken,
     useAuth,
     headers,
+    abortSignal,
   }: {
     method: string;
     body: any;
@@ -103,11 +106,13 @@ export class HttpClient {
     forcedAccessToken?: string;
     useAuth: boolean;
     headers?: Record<string, string>;
+    abortSignal?: AbortSignal;
   }): RequestInit {
     const allowedMethods = ['POST', 'PUT', 'PATCH'];
     
     return {
       method,
+      signal: abortSignal,
       headers: {
         ...(useAuth && { 
           Authorization: `Bearer ${forcedAccessToken || authToken.access_token}` 
