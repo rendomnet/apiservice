@@ -194,6 +194,41 @@ const result = await api.call({
 
 If no accountId is provided, ApiService automatically uses 'default' as the account ID.
 
+## Request Cancellation
+
+ApiService supports request cancellation using the standard `AbortController` API. This allows you to cancel ongoing API requests, including those that are being retried.
+
+```typescript
+// Create an AbortController
+const controller = new AbortController();
+
+// Make an API call with the controller's signal
+const apiPromise = api.call({
+  method: 'GET',
+  route: '/users',
+  abortSignal: controller.signal
+});
+
+// Cancel the request at any time
+controller.abort();
+
+try {
+  await apiPromise;
+} catch (error) {
+  if (error.name === 'AbortError' || error.message === 'Request aborted') {
+    console.log('Request was successfully aborted');
+  } else {
+    console.error('An error occurred:', error);
+  }
+}
+```
+
+The abort functionality works with all features of ApiService:
+- Cancels ongoing requests immediately
+- Prevents retry attempts from starting
+- Works with cached and non-cached requests
+- Compatible with all authentication providers
+
 ## AuthProvider Interface
 
 ```typescript
