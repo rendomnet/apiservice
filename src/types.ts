@@ -125,7 +125,7 @@ type TokenService = {
   refresh?: (refreshToken: string, accountId?: string) => Promise<OAuthToken>;
 };
 
-export {
+export type {
   OAuthToken,
   DelayStrategy,
   Token,
