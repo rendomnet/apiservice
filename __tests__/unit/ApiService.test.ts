@@ -156,4 +156,29 @@ describe('ApiService', () => {
       {}
     );
   });
+
+  it('propagates 401 error when refresh token is not available', async () => {
+    const tokenService = {
+      get: jest.fn().mockResolvedValue({ access_token: 'stale_token', accountId: 'id', provider: 'p' }), // No refresh_token
+      set: jest.fn(),
+      refresh: jest.fn()
+    };
+    const provider = new TokenAuthProvider(tokenService);
+
+    mockHttpClient.makeRequest.mockRejectedValueOnce({ status: 401, response: {} });
+
+    const api = new ApiService();
+    api['httpClient'] = mockHttpClient as any;
+    api['cacheManager'] = mockCacheManager as any;
+    api['retryManager'] = mockRetryManager as any;
+    api['accountManager'] = mockAccountManager as any;
+    api.setup({ provider: 'test', authProvider: provider, cacheTime: 0 });
+
+    await expect(api.call({ method: 'GET', route: '/protected', accountId: 'id' }))
+      .rejects
+      .toThrow('No refresh token available');
+
+    // Verify tokenService.refresh was never called
+    expect(tokenService.refresh).not.toHaveBeenCalled();
+  });
 }); 
