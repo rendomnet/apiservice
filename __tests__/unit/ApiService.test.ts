@@ -120,4 +120,40 @@ describe('ApiService', () => {
     expect(tokenService.get).toHaveBeenCalled();
     expect(mockHttpClient.makeRequest).toHaveBeenCalledTimes(2);
   });
+
+  it('automatically retrieves and uses refresh token on 401', async () => {
+    const tokenService = {
+      get: jest.fn()
+        .mockResolvedValueOnce({ access_token: 'stale_token', refresh_token: 'my_refresh_token', accountId: 'id', provider: 'p' })
+        .mockResolvedValueOnce({ access_token: 'stale_token', refresh_token: 'my_refresh_token', accountId: 'id', provider: 'p' })
+        .mockResolvedValueOnce({ access_token: 'fresh_token', refresh_token: 'new_refresh_token', accountId: 'id', provider: 'p' }),
+      set: jest.fn(),
+      refresh: jest.fn().mockResolvedValue({ access_token: 'fresh_token', refresh_token: 'new_refresh_token' }),
+    };
+    const provider = new TokenAuthProvider(tokenService);
+
+    mockHttpClient.makeRequest
+      .mockRejectedValueOnce({ status: 401, response: {} })
+      .mockResolvedValueOnce({ ok: true });
+
+    const api = new ApiService();
+    api['httpClient'] = mockHttpClient as any;
+    api['cacheManager'] = mockCacheManager as any;
+    api['retryManager'] = mockRetryManager as any;
+    api['accountManager'] = mockAccountManager as any;
+    api.setup({ provider: 'test', authProvider: provider, cacheTime: 0 });
+
+    await api.call({ method: 'GET', route: '/protected', accountId: 'id' });
+
+    // Verify that the refresh flow was triggered
+    expect(tokenService.refresh).toHaveBeenCalledWith('my_refresh_token', 'id');
+    expect(tokenService.set).toHaveBeenCalledWith({ access_token: 'fresh_token', refresh_token: 'new_refresh_token' }, 'id');
+
+    // Verify the API call was retried with the new token
+    expect(mockHttpClient.makeRequest).toHaveBeenCalledTimes(2);
+    expect(mockHttpClient.makeRequest).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer fresh_token' }) }),
+      {}
+    );
+  });
 }); 

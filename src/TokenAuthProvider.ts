@@ -16,13 +16,15 @@ export class TokenAuthProvider implements AuthProvider {
     if (!token?.access_token) return {};
     return { Authorization: `Bearer ${token.access_token}` };
   }
-  async refresh(refreshToken: string, accountId?: string): Promise<any> {
-    if (!this.tokenService.refresh) throw new Error('Refresh not supported');
-    const newToken = await this.tokenService.refresh(refreshToken, accountId);
-    await this.tokenService.set({
-      access_token: newToken.access_token,
-      refresh_token: newToken.refresh_token || refreshToken,
-    }, accountId);
-    return newToken;
+  public async refresh(accountId: string): Promise<void> {
+    if (!this.tokenService.refresh) {
+      throw new Error('Refresh not supported');
+    }
+    const token = await this.tokenService.get(accountId);
+    if (!token?.refresh_token) {
+      throw new Error('No refresh token available');
+    }
+    const newTokens = await this.tokenService.refresh(token.refresh_token, accountId);
+    await this.tokenService.set(newTokens, accountId);
   }
-} 
+}

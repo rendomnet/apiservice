@@ -15,7 +15,9 @@ describe('AuthProvider Implementations', () => {
       expect(headers).toEqual({ Authorization: 'Bearer abc' });
     });
     it('calls refresh and set', async () => {
-      await provider.refresh('refresh', 'id');
+      mockTokenService.get.mockResolvedValueOnce({ access_token: 'abc', refresh_token: 'refresh', accountId: 'id', provider: 'p' });
+      await provider.refresh('id');
+      expect(mockTokenService.get).toHaveBeenCalledWith('id');
       expect(mockTokenService.refresh).toHaveBeenCalledWith('refresh', 'id');
       expect(mockTokenService.set).toHaveBeenCalledWith({ access_token: 'newabc', refresh_token: 'newrefresh' }, 'id');
     });

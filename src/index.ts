@@ -111,7 +111,7 @@ class ApiService {
           }
           // You may want to store refresh token in account data or pass it in another way
           // For now, assume refresh token is managed internally by the provider
-          await this.authProvider.refresh('', accountId);
+          await this.authProvider.refresh(accountId);
           return {};
         } catch (error) {
           console.error(`Auth refresh failed for ${accountId}:`, error);
