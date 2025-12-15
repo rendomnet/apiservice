@@ -28,9 +28,34 @@ export class HttpClient {
     } = apiParams;
     
     // Build URL and request body
-    const url = this.buildUrl(base, route, queryParams);
-    const requestBody = body || data;
     const normalizedMethod = method?.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE';
+    
+    // Process query params
+    let finalQueryParams: Record<string, any> = {};
+    
+    // Handle existing query params (support both URLSearchParams and object)
+    if (queryParams) {
+      if (queryParams instanceof URLSearchParams) {
+        queryParams.forEach((val, key) => {
+          finalQueryParams[key] = val;
+        });
+      } else {
+        finalQueryParams = { ...(queryParams as any) };
+      }
+    }
+    
+    // For GET requests, merge body/data into query params
+    if (normalizedMethod === 'GET') {
+      if (body) {
+        finalQueryParams = { ...finalQueryParams, ...body };
+      }
+      if (data) {
+        finalQueryParams = { ...finalQueryParams, ...data };
+      }
+    }
+
+    const url = this.buildUrl(base, route, finalQueryParams);
+    const requestBody = body || data;
     
     // Handle file uploads
     const formData = this.prepareFormData(files);
@@ -53,8 +78,9 @@ export class HttpClient {
       console.log(`🔄 Making API call to ${url}`);
       const response = await fetch(url, fetchOptions);
       return await this.handleResponse(response);
-    } catch (error) {
-      console.error('🔄 Error making API call:', error);
+    } catch (error: any) {
+      // also console log error code such as 401 ....
+      console.error('🔄 Error making API call:', error, 'status:', error?.status);
       throw error;
     }
   }
@@ -62,10 +88,12 @@ export class HttpClient {
   /**
    * Build URL with query parameters
    */
-  private buildUrl(base: string | undefined, route?: string, queryParams?: URLSearchParams): string {
+  private buildUrl(base: string | undefined, route?: string, queryParams?: any): string {
     const baseUrl = base || '';
     let url = `${baseUrl}${route || ''}`;
-    if (queryParams) url += `?${qs.stringify(queryParams)}`;
+    if (queryParams && Object.keys(queryParams).length > 0) {
+      url += `?${qs.stringify(queryParams)}`;
+    }
     return url;
   }
 

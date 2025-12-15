@@ -182,6 +182,67 @@ describe('HttpClient', () => {
         expect.anything()
       );
     });
+
+    it('should move body params to query params when method is GET', async () => {
+      const apiParams: ApiCallParams = {
+        accountId: 'test-account',
+        method: 'GET',
+        base: 'https://api.example.com',
+        route: '/users',
+        // User passes body
+        body: { 
+          filter: 'active',
+          limit: 10 
+        },
+        useAuth: true,
+      };
+      
+      await httpClient.makeRequest(apiParams, mockAuthToken);
+      
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/https:\/\/api\.example\.com\/users\?/),
+        expect.objectContaining({
+            method: 'GET',
+        })
+      );
+
+      const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const url = callArgs[0] as string;
+      
+      // Verify params are in URL
+      expect(url).toContain('filter=active');
+      expect(url).toContain('limit=10');
+    });
+
+    it('should merge combined queryParams and body for GET requests', async () => {
+      const apiParams: ApiCallParams = {
+        accountId: 'test-account',
+        method: 'GET',
+        base: 'https://api.example.com',
+        route: '/users',
+        queryParams: new URLSearchParams({ 
+            sort: 'desc', 
+            // This should be overwritten by body
+            filter: 'old' 
+        }),
+        body: { 
+          filter: 'new', // Should overwrite 'old'
+          page: 1
+        },
+        useAuth: true,
+      };
+      
+      await httpClient.makeRequest(apiParams, mockAuthToken);
+      
+      const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const url = callArgs[0] as string;
+      
+      // Verify params are in URL and merged correctly
+      expect(url).toContain('sort=desc');
+      expect(url).toContain('page=1');
+      expect(url).toContain('filter=new');
+      expect(url).not.toContain('filter=old');
+    });
   });
 
   describe('buildUrl', () => {
