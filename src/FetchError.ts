@@ -24,6 +24,7 @@ export class FetchError extends Error {
     const messageFromData = getMessage(data, [
       'error.errors.0.message',
       'error.message',
+      'error',
       'message',
     ]);
 
