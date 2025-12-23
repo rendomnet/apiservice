@@ -28,7 +28,7 @@ class ApiService {
   private cacheManager: CacheManager;
   private retryManager: RetryManager;
   private hookManager: HookManager;
-  private httpClient: HttpClient;
+  protected httpClient: HttpClient;
   private accountManager: AccountManager;
   
   // Default max attempts for API calls
@@ -55,16 +55,22 @@ class ApiService {
     hooks = {},
     cacheTime,
     baseUrl = '',
+    httpClient,
   }: {
     provider: string;
     authProvider: AuthProvider;
     hooks?: Record<StatusCode, HookSettings | null>;
     cacheTime: number;
     baseUrl?: string;
+    httpClient?: HttpClient;
   }) {
     this.provider = provider;
     this.authProvider = authProvider;
     this.baseUrl = baseUrl;
+    
+    if (httpClient) {
+      this.httpClient = httpClient;
+    }
     
     // Create a copy of hooks to avoid modifying the input
     const finalHooks: Record<StatusCode, HookSettings> = {};
