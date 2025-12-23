@@ -308,4 +308,5 @@ export * from './types';
 export * from './FetchError';
 export * from './components';
 
+export { ApiService };
 export default ApiService;
