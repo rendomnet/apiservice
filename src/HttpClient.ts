@@ -79,8 +79,6 @@ export class HttpClient {
       const response = await fetch(url, fetchOptions);
       return await this.handleResponse(response);
     } catch (error: any) {
-      // also console log error code such as 401 ....
-      console.error('🔄 Error making API call:', error, 'status:', error?.status);
       throw error;
     }
   }

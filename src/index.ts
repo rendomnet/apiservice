@@ -120,12 +120,12 @@ class ApiService {
           await this.authProvider.refresh(accountId);
           return {};
         } catch (error) {
-          console.error(`Auth refresh failed for ${accountId}:`, error);
+          console.warn(`Auth refresh failed for ${accountId}:`, error);
           throw error;
         }
       },
       onMaxRetriesExceeded: async (accountId, error) => {
-        console.error(`Authentication failed after refresh attempt for ${accountId}:`, error);
+        console.warn(`Authentication failed after refresh attempt for ${accountId}:`, error);
       }
     };
   }
