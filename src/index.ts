@@ -126,6 +126,9 @@ class ApiService {
       },
       onMaxRetriesExceeded: async (accountId, error) => {
         console.warn(`Authentication failed after refresh attempt for ${accountId}:`, error);
+      },
+      onHandlerError: async (accountId, error) => {
+        console.error(`Default auth refresh handler encountered an error for ${accountId}:`, error);
       }
     };
   }

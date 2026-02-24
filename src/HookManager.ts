@@ -38,14 +38,16 @@ export class HookManager {
       // Handle waiting for existing hook call if needed
       if (hook.preventConcurrentCalls) {
         if (!this.hookPromises[hookKey]) {
-          this.hookPromises[hookKey] = Promise.resolve(
-            hook.handler(accountId, error.response) || {}
-          );
+          this.hookPromises[hookKey] = (async () => {
+            return await hook.handler(accountId, error.response) || {};
+          })();
         }
         
-        const result = await this.hookPromises[hookKey];
-        delete this.hookPromises[hookKey];
-        return result;
+        try {
+          return await this.hookPromises[hookKey];
+        } finally {
+          delete this.hookPromises[hookKey];
+        }
       } 
       
       // Otherwise just call the hook directly
